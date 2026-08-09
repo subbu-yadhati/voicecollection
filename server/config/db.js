@@ -1,0 +1,13 @@
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/speech_collection');
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.warn(`MongoDB Connection Notice: ${error.message}`);
+    console.warn('Server will continue running in local file storage mode.');
+  }
+};
+
+module.exports = connectDB;
