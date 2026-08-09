@@ -66,6 +66,7 @@ export default function App() {
       if (data && data.success) {
         setParticipantId(data.participantId || generateParticipantId());
         setIsSubmitted(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const errorMsg = data?.message || 'Server error during audio upload.';
         setSubmitError(errorMsg);
@@ -103,52 +104,53 @@ export default function App() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <Hero onStartClick={scrollToConsent} />
-
-        {/* Section Container with tight spacing */}
-        <div className="space-y-0.5">
-          {/* Section 3: Privacy Policy */}
-          <AccordionPrivacy />
-
-          {/* Section 4: Recording Guidelines */}
-          <GuidelinesCard />
-
-          {/* Section 5: Reading Passage */}
-          <ReadingPassage
-            onAudioChange={handleAudioChange}
-            activeAudioType={audioData?.type}
-          />
-
-          {/* Section 6: Participant Information */}
-          <ParticipantForm
+        {isSubmitted ? (
+          <ThankYouModal
+            participantId={participantId}
             participantName={participantName}
-            setParticipantName={setParticipantName}
-          />
-
-          {/* Section 7: Submit */}
-          <SubmitButton
-            consentAccepted={consentAccepted}
-            setConsentAccepted={setConsentAccepted}
             participantGender={participantGender}
-            setParticipantGender={setParticipantGender}
             audioData={audioData}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
+            onReturnHome={handleReturnHome}
           />
-        </div>
-      </main>
+        ) : (
+          <>
+            {/* Hero Section */}
+            <Hero onStartClick={scrollToConsent} />
 
-      {/* Section 9: Thank You Modal / View */}
-      {isSubmitted && (
-        <ThankYouModal
-          participantId={participantId}
-          participantName={participantName}
-          participantGender={participantGender}
-          audioData={audioData}
-          onReturnHome={handleReturnHome}
-        />
-      )}
+            {/* Section Container with tight spacing */}
+            <div className="space-y-0.5">
+              {/* Section 3: Privacy Policy */}
+              <AccordionPrivacy />
+
+              {/* Section 4: Recording Guidelines */}
+              <GuidelinesCard />
+
+              {/* Section 5: Reading Passage */}
+              <ReadingPassage
+                onAudioChange={handleAudioChange}
+                activeAudioType={audioData?.type}
+              />
+
+              {/* Section 6: Participant Information */}
+              <ParticipantForm
+                participantName={participantName}
+                setParticipantName={setParticipantName}
+              />
+
+              {/* Section 7: Submit */}
+              <SubmitButton
+                consentAccepted={consentAccepted}
+                setConsentAccepted={setConsentAccepted}
+                participantGender={participantGender}
+                setParticipantGender={setParticipantGender}
+                audioData={audioData}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+              />
+            </div>
+          </>
+        )}
+      </main>
 
       {/* Footer */}
       <Footer />

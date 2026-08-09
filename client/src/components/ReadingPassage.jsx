@@ -206,6 +206,19 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
     };
   }, [audioUrl]);
 
+  useEffect(() => {
+    if (!activeAudioType) {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioBlob(null);
+      setUploadedFile(null);
+      setAudioUrl(null);
+      setIsPlaying(false);
+      setRecordingTime(0);
+      setShowRecorderPanel(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [activeAudioType]);
+
   const wordCount = generatedText.trim().split(/\s+/).length;
   const estReadingTime = Math.ceil(wordCount / 130);
 
