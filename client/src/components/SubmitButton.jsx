@@ -74,7 +74,7 @@ export default function SubmitButton({
                 <span>Female</span>
               </label>
 
-              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              {/* <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="radio"
                   name="gender"
@@ -84,7 +84,7 @@ export default function SubmitButton({
                   className="w-4.5 h-4.5 text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
                 />
                 <span>Other</span>
-              </label>
+              </label> */}
             </div>
           </div>
 

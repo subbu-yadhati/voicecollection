@@ -15,7 +15,7 @@ export default function Navbar() {
         {/* Left: Project Name */}
         <div className="flex items-center space-x-4">
           <div>
-            <h1 className="text-base sm:text-2xl font-bold">
+            <h1 className="text-base sm:text-2xl font-semibold">
               Multilingual Audio Detection using Code-Switching
             </h1>
           </div>
