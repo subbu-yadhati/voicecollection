@@ -6,6 +6,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 
 const Participant = require("../models/Participant");
+const OpenSourceContributor = require("../models/OpenSourceContributor");
 const { uploadToDrive } = require("../config/drive");
 
 // -----------------------------
@@ -70,7 +71,7 @@ async function generateParticipantId() {
 
 router.post("/upload", upload.single("audio"), async (req, res) => {
   try {
-    const { name, gender, consent, duration, language } = req.body;
+    const { name, gender, consent, duration, language, openSourceConsent } = req.body;
 
     // Audio validation
     if (!req.file) {
@@ -159,6 +160,8 @@ router.post("/upload", upload.single("audio"), async (req, res) => {
     // -----------------------------
     // MongoDB Save
     // -----------------------------
+    const isOsConsented = openSourceConsent === "true" || openSourceConsent === true;
+
     try {
       if (mongoose.connection && mongoose.connection.readyState === 1) {
         const participant = new Participant({
@@ -170,9 +173,23 @@ router.post("/upload", upload.single("audio"), async (req, res) => {
           language: language || "",
           fileName,
           driveFileId: driveFileId || "",
+          openSourceConsent: isOsConsented,
         });
 
         await participant.save();
+
+        // If user consented to Open Source, save to OpenSourceContributor collection
+        if (isOsConsented) {
+          const osContributor = new OpenSourceContributor({
+            participantId,
+            name: name ? name.trim() : "",
+            gender,
+            fileName,
+            openSourceConsent: true,
+            purpose: "Training purpose only",
+          });
+          await osContributor.save();
+        }
       } else {
         console.log("[MongoDB Notice] MongoDB not connected; stored file metadata locally.");
       }
@@ -188,6 +205,7 @@ router.post("/upload", upload.single("audio"), async (req, res) => {
       message: "Audio uploaded successfully.",
       participantId,
       fileName,
+      openSourceConsent: isOsConsented,
     });
   } catch (error) {
     console.error("Upload Error:", error);

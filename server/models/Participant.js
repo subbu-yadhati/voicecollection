@@ -31,6 +31,10 @@ const participantSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  openSourceConsent: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

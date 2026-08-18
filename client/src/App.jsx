@@ -15,9 +15,11 @@ export default function App() {
   const [audioData, setAudioData] = useState(null); // { type: 'recorded' | 'uploaded', blob, file, url, ... }
   const [participantName, setParticipantName] = useState('');
   const [participantGender, setParticipantGender] = useState('');
+  const [passageText, setPassageText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [participantId, setParticipantId] = useState('');
+  const [fileName, setFileName] = useState('');
   const [submitError, setSubmitError] = useState('');
 
   const generateParticipantId = () => {
@@ -65,6 +67,7 @@ export default function App() {
 
       if (data && data.success) {
         setParticipantId(data.participantId || generateParticipantId());
+        setFileName(data.fileName || '');
         setIsSubmitted(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
@@ -88,7 +91,9 @@ export default function App() {
     setAudioData(null);
     setParticipantName('');
     setParticipantGender('');
+    setPassageText('');
     setParticipantId('');
+    setFileName('');
     setSubmitError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -110,6 +115,7 @@ export default function App() {
             participantName={participantName}
             participantGender={participantGender}
             audioData={audioData}
+            fileName={fileName}
             onReturnHome={handleReturnHome}
           />
         ) : (
@@ -127,6 +133,8 @@ export default function App() {
 
               {/* Section 5: Reading Passage */}
               <ReadingPassage
+                passageText={passageText}
+                setPassageText={setPassageText}
                 onAudioChange={handleAudioChange}
                 activeAudioType={audioData?.type}
               />

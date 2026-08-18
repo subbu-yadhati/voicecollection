@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 
 const uploadRoutes = require('./routes/upload');
 const generateTextRoutes = require('./routes/generateText');
+const openSourceRoutes = require('./routes/openSource');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/uploads', express.static(uploadsDir));
 // 3. API Routes
 app.use('/api', generateTextRoutes);
 app.use('/api', uploadRoutes);
+app.use('/api', openSourceRoutes);
 
 // Route to list all uploaded audio files
 app.get('/api/uploads', (req, res) => {

@@ -1,9 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, RefreshCw, Copy, Check, Mic, Square, Play, Pause, RotateCcw, CheckCircle2, AlertCircle, Send, Upload } from 'lucide-react';
+import {
+  BookOpen,
+  RefreshCw,
+  Copy,
+  Check,
+  Mic,
+  Square,
+  Play,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Send,
+  Upload,
+  Radio
+} from 'lucide-react';
 import { fetchGeneratedPassage } from '../utils/api';
 
-export default function ReadingPassage({ onPassageGenerated, onAudioChange, activeAudioType }) {
-  const [generatedText, setGeneratedText] = useState('');
+export default function ReadingPassage({
+  passageText = '',
+  setPassageText,
+  onPassageGenerated,
+  onAudioChange,
+  activeAudioType,
+}) {
+  const [localText, setLocalText] = useState(passageText || '');
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [fontSize, setFontSize] = useState('text-2xl sm:text-3xl');
@@ -25,6 +46,16 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
   const fileInputRef = useRef(null);
   const recordingTimeRef = useRef(0);
   const recordStartTimeRef = useRef(null);
+  const isRecordingRef = useRef(false);
+
+  // Sync prop and local text
+  const currentText = passageText || localText;
+
+  const updatePassageText = (newText) => {
+    setLocalText(newText);
+    if (setPassageText) setPassageText(newText);
+    if (onPassageGenerated) onPassageGenerated(newText);
+  };
 
   const formatTime = (totalSeconds) => {
     const minutes = Math.floor(totalSeconds / 60);
@@ -41,21 +72,24 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
       const data = await fetchGeneratedPassage();
 
       if (data && data.success && data.text) {
-        setGeneratedText(data.text);
-        if (onPassageGenerated) onPassageGenerated(data.text);
+        updatePassageText(data.text);
       } else {
         const errStr = data?.message || 'Failed to fetch passage from backend.';
         setRecordingError(errStr);
       }
     } catch (err) {
       console.error('Backend fetch error:', err);
-      setRecordingError(`Could not connect to backend server at port 5000 (${err.message}). Please ensure 'npm run dev' or 'node server.js' is running in the server directory.`);
+      setRecordingError(
+        `Could not connect to backend server (${err.message}). Please ensure server is running.`
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(generatedText);
+    if (!currentText) return;
+    navigator.clipboard.writeText(currentText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -78,6 +112,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
       mediaRecorderRef.current = mediaRecorder;
       recordStartTimeRef.current = Date.now();
       recordingTimeRef.current = 0;
+      isRecordingRef.current = true;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -89,9 +124,15 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
         const mimeType = mediaRecorder.mimeType || 'audio/wav';
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const url = URL.createObjectURL(blob);
-        const elapsedSeconds = Math.max(1, Math.round((Date.now() - (recordStartTimeRef.current || Date.now())) / 1000));
+        const elapsedSeconds = Math.max(
+          1,
+          Math.round((Date.now() - (recordStartTimeRef.current || Date.now())) / 1000)
+        );
         setAudioBlob(blob);
         setAudioUrl(url);
+        isRecordingRef.current = false;
+        setIsRecording(false);
+
         if (onAudioChange) {
           onAudioChange({ type: 'recorded', blob, url, duration: elapsedSeconds });
         }
@@ -102,6 +143,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
       setIsRecording(true);
       setRecordingTime(0);
 
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           const next = prev + 1;
@@ -111,29 +153,43 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
       }, 1000);
     } catch (err) {
       console.error('Microphone access error:', err);
+      isRecordingRef.current = false;
+      setIsRecording(false);
       setRecordingError('Microphone permission denied or not supported by browser.');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
+    isRecordingRef.current = false;
+    setIsRecording(false);
   };
 
   const handleRecordAgain = () => {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    // 1. Pause any playing audio
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+    }
+    // 2. Clean up previous recording URLs
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+    // 3. Reset audio states but KEEP passage text completely intact
     setUploadedFile(null);
     setAudioBlob(null);
     setAudioUrl(null);
     setIsPlaying(false);
     setRecordingTime(0);
-    if (onAudioChange) {
-      onAudioChange(null);
+    setShowRecorderPanel(true);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    // 4. Start recording immediately
     startRecording();
   };
 
@@ -164,7 +220,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
         type: 'uploaded',
         file,
         url,
-        name: file.name
+        name: file.name,
       });
     }
   };
@@ -206,10 +262,10 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
     };
   }, [audioUrl]);
 
+  // Sync when parent completely resets audio (e.g. on return home)
   useEffect(() => {
-    if (!activeAudioType) {
+    if (!activeAudioType && !isRecordingRef.current && !audioBlob) {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
-      setAudioBlob(null);
       setUploadedFile(null);
       setAudioUrl(null);
       setIsPlaying(false);
@@ -219,29 +275,29 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
     }
   }, [activeAudioType]);
 
-  const wordCount = generatedText.trim().split(/\s+/).length;
-  const estReadingTime = Math.ceil(wordCount / 130);
-
   return (
     <section id="passage" className="py-2 bg-white">
       <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-16">
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/70">
+          
           {/* Card Header with Heading (Left), Generate Button (Middle), Record Button (End) */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
             {/* Left: Title & Subtitle */}
             <div className="flex items-center gap-3">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Reading Passage</h2>
-                <p className="text-base sm:text-lg text-slate-600 font-medium">Generate a passage to read aloud for your recording</p>
+                <p className="text-base sm:text-lg text-slate-600 font-medium">
+                  Generate a passage to read aloud for your recording
+                </p>
               </div>
             </div>
 
             {/* Middle: Generate Text Button */}
             <div className="flex items-center justify-center">
               <button
-                onClick={() => handleGenerate()}
+                onClick={handleGenerate}
                 disabled={isLoading}
-                className="inline-flex items-center justify-center gap-2.5 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg font-bold rounded-xl shadow-md transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 shrink-0"
+                className="inline-flex items-center justify-center gap-2.5 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg font-bold rounded-xl shadow-md transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 shrink-0 cursor-pointer"
               >
                 <RefreshCw className={`w-4.5 h-4.5 ${isLoading ? 'animate-spin' : ''}`} />
                 <span>{isLoading ? 'Generating...' : 'Generate Text'}</span>
@@ -254,12 +310,13 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
               {!uploadedFile && (
                 <button
                   onClick={handleHeaderRecordClick}
-                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 text-white text-base font-semibold rounded-xl shadow-md transition-all focus:outline-none focus:ring-4 shrink-0 transform ${isRecording
+                  className={`inline-flex items-center justify-center gap-2 px-3.5 py-2.5 text-white text-base font-semibold rounded-xl shadow-md transition-all focus:outline-none focus:ring-4 shrink-0 transform cursor-pointer ${
+                    isRecording
                       ? 'bg-red-600 animate-pulse ring-4 ring-red-300 hover:bg-red-700'
                       : audioBlob
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-red-600 hover:bg-red-700 hover:scale-105 active:scale-95'
-                    }`}
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-red-600 hover:bg-red-700 hover:scale-105 active:scale-95'
+                  }`}
                 >
                   {isRecording ? (
                     <>
@@ -292,19 +349,19 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
               {/* Show Upload button only if live recording is NOT active and NO live recording has been captured */}
               {!isRecording && !audioBlob && (
                 <>
-                <span>OR</span>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-base font-semibold rounded-xl shadow-xs transition-all focus:outline-none shrink-0 border cursor-pointer ${uploadedFile
-                      ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                      : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50 hover:border-slate-400'
+                  <span className="text-slate-400 font-bold text-sm">OR</span>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-base font-semibold rounded-xl shadow-xs transition-all focus:outline-none shrink-0 border cursor-pointer ${
+                      uploadedFile
+                        ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                        : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50 hover:border-slate-400'
                     }`}
-                >
-                  
-                  <Upload className="w-5 h-5" />
-                  <span>{uploadedFile ? 'Uploaded File' : 'Upload Audio'}</span>
-                </button></>
-                
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span>{uploadedFile ? 'Uploaded File' : 'Upload Audio'}</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -314,44 +371,58 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Font Size Controls */}
               <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
-                {/* <span className="px-2 font-bold text-black">Text:</span> */}
                 <button
                   onClick={() => setFontSize('text-xl')}
-                  className={`px-2.5 py-1 rounded-md text-base font-bold ${fontSize === 'text-xl' ? 'bg-white text-blue-600 shadow-xs' : 'text-black'}`}
+                  className={`px-2.5 py-1 rounded-md text-base font-bold transition-colors cursor-pointer ${
+                    fontSize === 'text-xl' ? 'bg-blue-50 text-blue-600 shadow-xs' : 'text-slate-700'
+                  }`}
                 >
                   Medium
                 </button>
                 <button
                   onClick={() => setFontSize('text-2xl sm:text-3xl')}
-                  className={`px-2.5 py-1 rounded-md text-base font-bold ${fontSize === 'text-2xl sm:text-3xl' ? 'bg-white text-blue-600 shadow-xs' : 'text-black'}`}
+                  className={`px-2.5 py-1 rounded-md text-base font-bold transition-colors cursor-pointer ${
+                    fontSize === 'text-2xl sm:text-3xl'
+                      ? 'bg-blue-50 text-blue-600 shadow-xs'
+                      : 'text-slate-700'
+                  }`}
                 >
                   Large
                 </button>
                 <button
                   onClick={() => setFontSize('text-3xl sm:text-4xl')}
-                  className={`px-2.5 py-1 rounded-md text-base font-bold ${fontSize === 'text-3xl sm:text-4xl' ? 'bg-white text-blue-600 shadow-xs' : 'text-black'}`}
+                  className={`px-2.5 py-1 rounded-md text-base font-bold transition-colors cursor-pointer ${
+                    fontSize === 'text-3xl sm:text-4xl'
+                      ? 'bg-blue-50 text-blue-600 shadow-xs'
+                      : 'text-slate-700'
+                  }`}
                 >
                   XL
                 </button>
               </div>
 
               {/* Copy Button */}
-              <button
-                onClick={handleCopy}
-                className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 px-3.5 py-1 rounded-lg text-slate-800 text-sm font-bold transition-all shadow-xs"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Copied' : 'Copy'}</span>
-              </button>
+              {currentText && (
+                <button
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 px-3.5 py-1 rounded-lg text-slate-800 text-sm font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* Simple Inline Recording & Upload Panel placed ABOVE the Reading Paragraph Box */}
           {showRecorderPanel && (
-            <div className={`mb-3 p-3 sm:p-4 rounded-xl shadow-xs transition-all animate-fadeIn ${isRecording
-                ? 'bg-gradient-to-r from-red-50/90 via-white to-red-50/90 border-2 border-red-200'
-                : 'bg-white border border-slate-200'
-              }`}>
+            <div
+              className={`mb-3 p-3 sm:p-4 rounded-xl shadow-xs transition-all animate-fadeIn ${
+                isRecording
+                  ? 'bg-gradient-to-r from-red-50/90 via-white to-red-50/90 border-2 border-red-300 ring-2 ring-red-100'
+                  : 'bg-white border border-slate-200'
+              }`}
+            >
               {recordingError && (
                 <div className="mb-2.5 p-2.5 bg-red-100 border border-red-300 text-red-800 rounded-lg text-sm font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4.5 h-4.5 shrink-0 text-red-600" />
@@ -373,16 +444,18 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
                         <span className="text-2xl font-bold font-mono text-slate-900 tracking-wider">
                           {formatTime(recordingTime)}
                         </span>
-                        <span className="text-sm font-bold text-red-600 uppercase tracking-wider px-2 py-0.5 rounded-md animate-pulse">
+                        <span className="text-sm font-bold text-red-600 uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-100 animate-pulse">
                           Recording Live
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 font-medium">Read the paragraph below clearly into your microphone</p>
+                      <p className="text-sm text-slate-600 font-medium">
+                        Read the paragraph below clearly into your microphone
+                      </p>
                     </div>
                   </div>
 
                   {/* Animated Soundwave Bar Visualizer */}
-                  <div className="flex items-center gap-1.5 h-8 px-3 py-1">
+                  <div className="flex items-center gap-1.5 h-8 px-3 py-1 bg-red-50/50 rounded-lg">
                     <div className="w-1.5 h-3 bg-red-500 rounded-full animate-bounce [animation-delay:-0.4s]"></div>
                     <div className="w-1.5 h-6 bg-red-600 rounded-full animate-bounce [animation-delay:-0.2s]"></div>
                     <div className="w-1.5 h-7 bg-red-500 rounded-full animate-bounce"></div>
@@ -393,7 +466,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
 
                   <button
                     onClick={stopRecording}
-                    className="inline-flex items-center gap-2 px-4.5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-md transition-all focus:outline-none shrink-0"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow-md transition-all focus:outline-none shrink-0 cursor-pointer active:scale-95"
                   >
                     <Square className="w-4 h-4 fill-white" />
                     <span>Stop Recording</span>
@@ -404,18 +477,26 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
               {!isRecording && audioBlob && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center shrink-0 border border-slate-300">
-                      {uploadedFile ? <Upload className="w-4.5 h-4.5 text-blue-600" /> : <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+                      {uploadedFile ? (
+                        <Upload className="w-4.5 h-4.5 text-blue-600" />
+                      ) : (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      )}
                     </div>
                     <div>
                       <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <span>{uploadedFile ? 'Audio File Uploaded' : 'Passage Recording Captured'}</span>
-                        <span className="text-sm bg-white text-slate-800 border border-slate-300 px-2 py-0.5 rounded-md font-bold max-w-[180px] truncate">
+                        <span>
+                          {uploadedFile ? 'Audio File Uploaded' : 'Passage Recording Captured'}
+                        </span>
+                        <span className="text-sm bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.5 rounded-md font-bold max-w-[180px] truncate">
                           {uploadedFile ? uploadedFile.name : `(${formatTime(recordingTime)})`}
                         </span>
                       </h4>
                       <p className="text-sm text-slate-600 font-medium">
-                        {uploadedFile ? `Pre-recorded file (${Math.round(uploadedFile.size / 1024)} KB) selected for submission` : 'Saved & selected for submission'}
+                        {uploadedFile
+                          ? `Pre-recorded file (${Math.round(uploadedFile.size / 1024)} KB) selected for submission`
+                          : 'Saved & ready for submission'}
                       </p>
                     </div>
                   </div>
@@ -423,9 +504,13 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
                   <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                     <button
                       onClick={togglePlayback}
-                      className="w-9 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shrink-0 transition-colors shadow-sm"
+                      className="w-9 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shrink-0 transition-colors shadow-sm cursor-pointer"
                     >
-                      {isPlaying ? <Pause className="w-4.5 h-4.5 fill-white" /> : <Play className="w-4.5 h-4.5 fill-white ml-0.5" />}
+                      {isPlaying ? (
+                        <Pause className="w-4.5 h-4.5 fill-white" />
+                      ) : (
+                        <Play className="w-4.5 h-4.5 fill-white ml-0.5" />
+                      )}
                     </button>
 
                     <audio
@@ -439,7 +524,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
                     {uploadedFile ? (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-blue-600 bg-white border border-slate-300 rounded-lg transition-colors shrink-0 shadow-xs"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-blue-600 bg-white border border-slate-300 rounded-lg transition-colors shrink-0 shadow-xs cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>Change File</span>
@@ -447,7 +532,7 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
                     ) : (
                       <button
                         onClick={handleRecordAgain}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-red-600 bg-white border border-slate-300 rounded-lg transition-colors shrink-0 shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors shrink-0 shadow-xs cursor-pointer"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Re-record</span>
@@ -467,21 +552,42 @@ export default function ReadingPassage({ onPassageGenerated, onAudioChange, acti
             </div>
           )}
 
-          {/* Readable Text Box - Only visible when generating or when text is fetched */}
-          {(isLoading || generatedText) && (
-            <div className="bg-[#FFFDF9] border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-inner max-h-80 overflow-y-auto custom-scrollbar">
-              {isLoading ? (
-                <div className="py-4 flex items-center justify-center text-blue-600 gap-2.5">
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <p className="text-base font-bold text-slate-700">Just a Second Your Passage is Loading.....</p>
-                </div>
-              ) : (
-                <p className={`${fontSize} text-slate-900 leading-relaxed whitespace-pre-line font-medium tracking-wide`}>
-                  {generatedText}
+          {/* Reading Paragraph Box */}
+          <div
+            className={`rounded-2xl p-4 sm:p-5 shadow-inner max-h-80 overflow-y-auto custom-scrollbar transition-all duration-300 ${
+              isRecording
+                ? 'bg-red-50/20 border-2 border-red-400 ring-4 ring-red-100/60 shadow-md'
+                : 'bg-[#FFFDF9] border border-slate-200/80'
+            }`}
+          >
+            {/* Live recording indicator banner directly above text when recording */}
+            {isRecording && (
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-200 text-red-700 text-xs sm:text-sm font-bold animate-pulse">
+                <Radio className="w-4 h-4 text-red-600" />
+                <span>LIVE RECORDING ACTIVE — Please read the passage below:</span>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="py-8 flex items-center justify-center text-blue-600 gap-2.5">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <p className="text-base font-bold text-slate-700">
+                  Just a Second Your Passage is Loading.....
                 </p>
-              )}
-            </div>
-          )}
+              </div>
+            ) : currentText ? (
+              <p
+                className={`${fontSize} text-slate-900 leading-relaxed whitespace-pre-line font-medium tracking-wide`}
+              >
+                {currentText}
+              </p>
+            ) : (
+              <div className="py-8 text-center text-slate-500">
+                <p className="text-base font-medium">Click "Generate Text" above to load a reading passage.</p>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </section>

@@ -42,3 +42,27 @@ export async function checkBackendHealth() {
     return false;
   }
 }
+
+// Open source consent
+export async function saveOpenSourceConsent(payload) {
+  const response = await fetch(`${API_URL}/api/opensource-consent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch (e) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || `Consent submission failed with status ${response.status}`);
+  }
+
+  return data;
+}

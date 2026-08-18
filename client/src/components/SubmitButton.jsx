@@ -18,6 +18,7 @@ export default function SubmitButton({
     <section id="submit-section" className="py-3 bg-white border-t border-slate-200">
       <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-16">
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col xl:flex-row items-center justify-between gap-4">
+          
           {/* Left: Consent Checkbox */}
           <div className="flex-1 text-left">
             <label className="flex items-start sm:items-center gap-3 cursor-pointer select-none group">
@@ -73,18 +74,6 @@ export default function SubmitButton({
                 />
                 <span>Female</span>
               </label>
-
-              {/* <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="radio"
-                  name="gender"
-                  value="Other"
-                  checked={participantGender === 'Other'}
-                  onChange={(e) => setParticipantGender(e.target.value)}
-                  className="w-4.5 h-4.5 text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
-                />
-                <span>Other</span>
-              </label> */}
             </div>
           </div>
 

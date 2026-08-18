@@ -5,3 +5,7 @@ uploads/
 **/uploads/
 dist/
 build/
+server/test.js
+*.db
+**/*.db
+passages.db
