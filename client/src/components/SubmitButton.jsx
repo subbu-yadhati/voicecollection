@@ -26,6 +26,7 @@ export default function SubmitButton({
                 type="checkbox"
                 id="consent-checkbox"
                 checked={consentAccepted}
+                defaultChecked={true}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
                 className="w-5 h-5 text-emerald-600 border-slate-300 rounded-md focus:ring-emerald-500 cursor-pointer accent-emerald-600 shrink-0 mt-0.5 sm:mt-0"
               />

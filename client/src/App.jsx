@@ -11,7 +11,7 @@ import Footer from './components/Footer';
 import { uploadSpeechRecording } from './utils/api';
 
 export default function App() {
-  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(true);
   const [audioData, setAudioData] = useState(null); // { type: 'recorded' | 'uploaded', blob, file, url, ... }
   const [participantName, setParticipantName] = useState('');
   const [participantGender, setParticipantGender] = useState('');
