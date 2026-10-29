@@ -6,7 +6,7 @@ export default function GuidelinesCard() {
     {
       icon: Clock,
       title: 'Duration',
-      desc: 'Minimum recording length: 2 minutes will very helpful for us',
+      desc: 'Minimum recording length: 4-5 minutes will very helpful for us',
       bgClass: 'bg-blue-50/70 text-blue-900',
       iconClass: 'text-black'
     },
